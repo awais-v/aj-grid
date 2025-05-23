@@ -15,7 +15,7 @@ import {
   NumberFilterModule,
   ValidationModule,
 } from "ag-grid-enterprise";
-import { IUserPriceData } from "./iterface";
+
 import dummy from "./dummydata.json";
 
 // Register AG Grid modules
@@ -29,162 +29,127 @@ ModuleRegistry.registerModules([
   ValidationModule,
 ]);
 
+// Define the row type
+interface IUserPriceData {
+  name: string;
+  Jan: number;
+  Feb: number;
+  Mar: number;
+  Apr: number;
+  May: number;
+  Jun: number;
+  Jul: number;
+  Aug: number;
+  Sep: number;
+  Oct: number;
+  Nov: number;
+  Dec: number;
+  total: number;
+}
+
 const App = () => {
   const containerStyle = useMemo(() => ({ width: "100%", height: "80vh" }), []);
   const gridStyle = useMemo(() => ({ height: "100%", width: "100%" }), []);
 
-  // Parse date string "MM/DD/YYYY" (from dataset)
-  const parseDate = (dateStr: string) => {
-    const [month, day, year] = dateStr.split("/").map(Number);
-    return new Date(year, month - 1, day);
+  const monthFields: (keyof Omit<IUserPriceData, 'name' | 'total'>)[] = [
+    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+  ];
+
+  // Prepare data with totals
+  const [rowData, setRowData] = useState<IUserPriceData[]>(() => {
+    return dummy.map((row) => {
+      const total = monthFields.reduce((sum, m) => sum + (Number(row[m]) || 0), 0);
+      return { ...row, total };
+    });
+  });
+
+  // Handle cell editing changes
+  const onCellValueChanged = (params: any) => {
+    const { colDef, data, newValue } = params;
+
+    const updatedData = { ...data };
+
+    // If a month was edited, recalculate total
+    if (monthFields.includes(colDef.field as any)) {
+      updatedData.total = monthFields.reduce((sum, m) => sum + (Number(updatedData[m]) || 0), 0);
+    }
+
+    // If total was edited, redistribute evenly across months
+    if (colDef.field === "total") {
+      const newTotal = Number(newValue) || 0;
+      const perMonth = Math.floor(newTotal / monthFields.length);
+      const remainder = newTotal % monthFields.length;
+
+      monthFields.forEach((month, index) => {
+        const value = perMonth + (index === 0 ? remainder : 0);
+        (updatedData as Record<string, number>)[month] = value;
+      });
+
+      updatedData.total = newTotal;
+    }
+
+    // Update row data
+    setRowData((prev) =>
+      prev.map((row) => (row.name === data.name ? updatedData : row))
+    );
   };
 
-  // Parse input[type="date"] value (YYYY-MM-DD)
-  const parseInputDate = (value: string) => {
-    const [year, month, day] = value.split("-").map(Number);
-    return new Date(year, month - 1, day);
-  };
-
-  // Date comparator for AG Grid sorting
-  const dateComparator = (d1: string, d2: string) => {
-    if (!d1) return -1;
-    if (!d2) return 1;
-    const date1 = parseDate(d1);
-    const date2 = parseDate(d2);
-    return date1.getTime() - date2.getTime();
-  };
-
-  // Format date string (e.g., "05/18/2025")
-  const formatDateDisplay = (dateStr: string) => dateStr;
-
-  // Column definitions
   const [columnDefs] = useState<ColDef[]>([
-    { field: "name", headerName: "Name", filter: true },
-    { field: "month", headerName: "Month", filter: true },
     {
-      field: "price",
-      headerName: "Price ($)",
+      field: "name",
+      headerName: "Name",
+      pinned: "left",
+      editable: false,
+      filter: true,
+    },
+    {
+      field: "total",
+      headerName: "Total",
+      editable: false,
       filter: "agNumberColumnFilter",
       sortable: true,
     },
-    {
-      field: "date",
-      headerName: "Date",
-      filter: "agDateColumnFilter",
+    ...monthFields.map((month) => ({
+      field: month,
+      headerName: month,
+      editable: true,
+      filter: "agNumberColumnFilter",
       sortable: true,
-      comparator: dateComparator,
-      valueFormatter: (params) =>
-        typeof params.value === "string" ? formatDateDisplay(params.value) : "",
-    },
+    })),
   ]);
 
   const defaultColDef = useMemo<ColDef>(
     () => ({
       flex: 1,
-      minWidth: 150,
-      floatingFilter: true,
+      minWidth: 100,
+      resizable: true,
       sortable: true,
+      floatingFilter: true,
     }),
     []
   );
 
-  const data: IUserPriceData[] = dummy;
-  const loading = false;
-
-  // Date range inputs
-  const [startWeekDate, setStartWeekDate] = useState<string>("");
-  const [endWeekDate, setEndWeekDate] = useState<string>("");
-
-  // Search filter input
   const [searchText, setSearchText] = useState<string>("");
 
-  // Filter data by date range
-  const filteredDataByDate = useMemo(() => {
-    if (!data) return [];
-
-    const startDate = startWeekDate ? parseInputDate(startWeekDate) : null;
-    const endDate = endWeekDate ? parseInputDate(endWeekDate) : null;
-
-    let actualStartDate = startDate;
-    let actualEndDate = endDate;
-    if (startDate && endDate && startDate > endDate) {
-      actualStartDate = endDate;
-      actualEndDate = startDate;
-    }
-
-    return data.filter((d) => {
-      if (!d.date) return false;
-
-      const recordDate = parseDate(d.date);
-
-      if (actualStartDate && actualEndDate) {
-        return recordDate >= actualStartDate && recordDate <= actualEndDate;
-      } else if (actualStartDate) {
-        return recordDate >= actualStartDate;
-      } else if (actualEndDate) {
-        return recordDate <= actualEndDate;
-      }
-
-      return true;
-    });
-  }, [data, startWeekDate, endWeekDate]);
-
-  // Further filter by search string
   const filteredData = useMemo(() => {
-    if (!filteredDataByDate) return [];
-
-    if (!searchText) return filteredDataByDate;
-
+    if (!searchText) return rowData;
     const lowerSearch = searchText.toLowerCase();
-
-    return filteredDataByDate.filter((item) => {
-      const formattedDate = item.date ? item.date.replace(/\//g, " ") : "";
-
-      return (
-        (item.name && item.name.toLowerCase().includes(lowerSearch)) ||
-        (item.month && item.month.toLowerCase().includes(lowerSearch)) ||
-        (formattedDate && formattedDate.toLowerCase().includes(lowerSearch)) ||
-        item.price.toString().includes(lowerSearch)
-      );
-    });
-  }, [filteredDataByDate, searchText]);
-
-  // Revenue calculation
-  const estimatedRevenue = useMemo(() => {
-    if (!filteredData) return 0;
-    return filteredData.reduce((sum, item) => sum + item.price, 0);
-  }, [filteredData]);
+    return rowData.filter((item) =>
+      item.name.toLowerCase().includes(lowerSearch)
+    );
+  }, [searchText, rowData]);
 
   return (
     <div style={{ padding: 20 }}>
-      <div className="form-row">
-        <label className="form-label">
-          Start Week Date:
-          <input
-            type="date"
-            value={startWeekDate}
-            onChange={(e) => setStartWeekDate(e.target.value)}
-            className="form-input"
-          />
-        </label>
-
-        <label className="form-label">
-          End Week Date:
-          <input
-            type="date"
-            value={endWeekDate}
-            onChange={(e) => setEndWeekDate(e.target.value)}
-            className="form-input"
-          />
-        </label>
-      </div>
+      <h2>User Monthly Prices</h2>
 
       <div className="form-group">
         <label className="form-label">
           Search:
           <input
             type="text"
-            placeholder="Search by name, month, date or price"
+            placeholder="Search by name"
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
             className="form-input"
@@ -192,23 +157,15 @@ const App = () => {
         </label>
       </div>
 
-
-
       <div style={containerStyle}>
         <div style={gridStyle}>
           <AgGridReact<IUserPriceData>
             rowData={filteredData}
-            loading={loading}
             columnDefs={columnDefs}
             defaultColDef={defaultColDef}
+            onCellValueChanged={onCellValueChanged}
           />
         </div>
-      </div>
-
-      <div style={{ marginTop: 20 }}>
-        <strong>
-          Estimated Revenue for Selected Months: ${estimatedRevenue.toLocaleString()}
-        </strong>
       </div>
     </div>
   );

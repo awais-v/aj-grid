@@ -1,0 +1,31 @@
+[
+    {
+      "name": "Overall Result",
+      "path": ["Overall Result"],
+      "Jan": 551.464, "Feb": 626.498, "Mar": 621.173, "Apr": 644.098,
+      "May": 584.666, "Jun": 574.385, "Jul": 586.455, "Aug": 594.956,
+      "Sep": 625.753, "Oct": 603.012, "Nov": 637.256, "Dec": 642.024
+    },
+    {
+      "name": "Consumer",
+      "path": ["Overall Result", "Consumer"],
+      "Jan": 379.048, "Feb": 429.541, "Mar": 431.718, "Apr": 448.069,
+      "May": 405.193, "Jun": 396.546, "Jul": 405.643, "Aug": 412.688,
+      "Sep": 437.226, "Oct": 420.163, "Nov": 446.241, "Dec": 449.417
+    },
+    {
+      "name": "Industrial",
+      "path": ["Overall Result", "Industrial"],
+      "Jan": 113.386, "Feb": 127.955, "Mar": 124.171, "Apr": 128.465,
+      "May": 118.566, "Jun": 116.455, "Jul": 119.345, "Aug": 120.558,
+      "Sep": 126.497, "Oct": 121.237, "Nov": 127.369, "Dec": 128.405
+    },
+    {
+      "name": "Others",
+      "path": ["Overall Result", "Others"],
+      "Jan": 59.030, "Feb": 69.002, "Mar": 65.284, "Apr": 67.564,
+      "May": 60.907, "Jun": 61.384, "Jul": 61.467, "Aug": 61.710,
+      "Sep": 62.030, "Oct": 61.612, "Nov": 63.646, "Dec": 64.202
+    }
+  ]
+  

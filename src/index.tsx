@@ -6,6 +6,7 @@ import reportWebVitals from './reportWebVitals';
 
 import { AllEnterpriseModule, LicenseManager } from 'ag-grid-enterprise';
 import { ModuleRegistry } from 'ag-grid-community';
+import Tree from './TreeStur';
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement
 );
@@ -17,7 +18,8 @@ console.log("License Key:", process.env.REACT_APP_AG_GRID_LICENSE_KEY);
 
 root.render(
   <React.StrictMode>
-    <App />
+    {/* <App /> */}
+    <Tree />
   </React.StrictMode>
 );
 

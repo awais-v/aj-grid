@@ -45,24 +45,26 @@ interface IUserPriceData {
   Nov: number;
   Dec: number;
   total: number;
+  average: number;
 }
 
 const App = () => {
   const containerStyle = useMemo(() => ({ width: "100%", height: "80vh" }), []);
   const gridStyle = useMemo(() => ({ height: "100%", width: "100%" }), []);
 
-  const monthFields: (keyof Omit<IUserPriceData, 'name' | 'total'>)[] = [
+  const monthFields: (keyof Omit<IUserPriceData, 'name' | 'total' | 'average'>)[] = [
     "Jan", "Feb", "Mar", "Apr", "May", "Jun",
     "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
   ];
 
-  // Prepare data with totals
+  // Prepare data with totals and averages
   const [rowData, setRowData] = useState<IUserPriceData[]>(() => {
-    return dummy.map((row) => {
-      const total = monthFields.reduce((sum, m) => sum + (Number(row[m]) || 0), 0);
-      return { ...row, total };
-    });
+  return dummy.map((row) => {
+    const total = monthFields.reduce((sum, m) => sum + (Number(row[m]) || 0), 0);
+    const average = parseFloat((total / monthFields.length).toFixed(2));
+    return { ...row, total, average };
   });
+});
 
   // Handle cell editing changes
   const onCellValueChanged = (params: any) => {
@@ -70,12 +72,11 @@ const App = () => {
 
     const updatedData = { ...data };
 
-    // If a month was edited, recalculate total
     if (monthFields.includes(colDef.field as any)) {
       updatedData.total = monthFields.reduce((sum, m) => sum + (Number(updatedData[m]) || 0), 0);
+      updatedData.average = parseFloat((updatedData.total / monthFields.length).toFixed(2));
     }
 
-    // If total was edited, redistribute evenly across months
     if (colDef.field === "total") {
       const newTotal = Number(newValue) || 0;
       const perMonth = Math.floor(newTotal / monthFields.length);
@@ -87,9 +88,9 @@ const App = () => {
       });
 
       updatedData.total = newTotal;
+      updatedData.average = parseFloat((newTotal / monthFields.length).toFixed(2));
     }
 
-    // Update row data
     setRowData((prev) =>
       prev.map((row) => (row.name === data.name ? updatedData : row))
     );
@@ -106,6 +107,13 @@ const App = () => {
     {
       field: "total",
       headerName: "Total",
+      editable: false,
+      filter: "agNumberColumnFilter",
+      sortable: true,
+    },
+    {
+      field: "average",
+      headerName: "Average",
       editable: false,
       filter: "agNumberColumnFilter",
       sortable: true,

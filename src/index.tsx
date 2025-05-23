@@ -1,15 +1,23 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
-import Grid from './App';
+import App from './App';
 import reportWebVitals from './reportWebVitals';
 
+import { AllEnterpriseModule, LicenseManager } from 'ag-grid-enterprise';
+import { ModuleRegistry } from 'ag-grid-community';
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement
 );
+
+ModuleRegistry.registerModules([AllEnterpriseModule]);
+
+LicenseManager.setLicenseKey(process.env.REACT_APP_AG_GRID_LICENSE_KEY || "");
+console.log("License Key:", process.env.REACT_APP_AG_GRID_LICENSE_KEY);
+
 root.render(
   <React.StrictMode>
-    <Grid />
+    <App />
   </React.StrictMode>
 );
 

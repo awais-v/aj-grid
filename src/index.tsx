@@ -18,8 +18,8 @@ console.log("License Key:", process.env.REACT_APP_AG_GRID_LICENSE_KEY);
 
 root.render(
   <React.StrictMode>
-    {/* <App /> */}
-    <Tree />
+    <App />
+    {/* <Tree /> */}
   </React.StrictMode>
 );
 

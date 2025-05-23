@@ -1,139 +1,214 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { AgGridReact } from "ag-grid-react";
 import {
   ClientSideRowModelModule,
   ColDef,
-  DateFilterModule,
-  ExternalFilterModule,
-  GridReadyEvent,
-  IDateFilterParams,
-  IRowNode,
   ModuleRegistry,
+} from "ag-grid-community";
+import {
+  ColumnMenuModule,
+  ColumnsToolPanelModule,
+  ContextMenuModule,
+  SetFilterModule,
   NumberFilterModule,
   ValidationModule,
-} from "ag-grid-community";
+} from "ag-grid-enterprise";
+import { IUserPriceData } from "./iterface";
+import dummy from "./dummydata.json";
 
-import { IOlympicData } from "./const";
-
-// Register the necessary modules
+// Register AG Grid modules
 ModuleRegistry.registerModules([
-  ExternalFilterModule,
   ClientSideRowModelModule,
+  ColumnsToolPanelModule,
+  ColumnMenuModule,
+  ContextMenuModule,
+  SetFilterModule,
   NumberFilterModule,
-  DateFilterModule,
   ValidationModule,
 ]);
 
-const dateFilterParams: IDateFilterParams = {
-  comparator: (filterLocalDateAtMidnight: Date, cellValue: string) => {
-    const cellDate = asDate(cellValue);
-    if (filterLocalDateAtMidnight.getTime() === cellDate.getTime()) {
-      return 0;
-    }
-    if (cellDate < filterLocalDateAtMidnight) {
-      return -1;
-    }
-    if (cellDate > filterLocalDateAtMidnight) {
-      return 1;
-    }
-    return 0;
-  },
-};
-
-function asDate(dateAsString: string) {
-  const splitFields = dateAsString.split("/");
-  return new Date(
-    Number.parseInt(splitFields[2]),
-    Number.parseInt(splitFields[1]) - 1,
-    Number.parseInt(splitFields[0])
-  );
-}
-
 const App = () => {
-  const gridRef = useRef<AgGridReact<IOlympicData>>(null);
-  const containerStyle = useMemo(() => ({ width: "100%", height: "100%" }), []);
+  const containerStyle = useMemo(() => ({ width: "100%", height: "80vh" }), []);
   const gridStyle = useMemo(() => ({ height: "100%", width: "100%" }), []);
-  const [rowData, setRowData] = useState<IOlympicData[]>([]);
-  const [lockedColumns, setLockedColumns] = useState<Record<string, boolean>>(
-    {}
-  );
 
-  const toggleLockColumn = (field: string) => {
-    setLockedColumns((prev) => ({
-      ...prev,
-      [field]: !prev[field],
-    }));
+  // Parse date string "MM/DD/YYYY" (from dataset)
+  const parseDate = (dateStr: string) => {
+    const [month, day, year] = dateStr.split("/").map(Number);
+    return new Date(year, month - 1, day);
   };
 
-  const columnDefs = useMemo<ColDef[]>(
-    () =>
-      [
-        { field: "athlete", minWidth: 180 },
-        { field: "age", filter: "agNumberColumnFilter", maxWidth: 80 },
-        { field: "country" },
-        { field: "year", maxWidth: 90 },
-        {
-          field: "date",
-          filter: "agDateColumnFilter",
-          filterParams: dateFilterParams,
-        },
-        { field: "gold", filter: "agNumberColumnFilter" },
-        { field: "silver", filter: "agNumberColumnFilter" },
-        { field: "bronze", filter: "agNumberColumnFilter" },
-      ].map((col) => ({
-        ...col,
-        editable: !lockedColumns[col.field], // Disable editing if column is locked
-      })),
-    [lockedColumns]
-  );
+  // Parse input[type="date"] value (YYYY-MM-DD)
+  const parseInputDate = (value: string) => {
+    const [year, month, day] = value.split("-").map(Number);
+    return new Date(year, month - 1, day);
+  };
+
+  // Date comparator for AG Grid sorting
+  const dateComparator = (d1: string, d2: string) => {
+    if (!d1) return -1;
+    if (!d2) return 1;
+    const date1 = parseDate(d1);
+    const date2 = parseDate(d2);
+    return date1.getTime() - date2.getTime();
+  };
+
+  // Format date string (e.g., "05/18/2025")
+  const formatDateDisplay = (dateStr: string) => dateStr;
+
+  // Column definitions
+  const [columnDefs] = useState<ColDef[]>([
+    { field: "name", headerName: "Name", filter: true },
+    { field: "month", headerName: "Month", filter: true },
+    {
+      field: "price",
+      headerName: "Price ($)",
+      filter: "agNumberColumnFilter",
+      sortable: true,
+    },
+    {
+      field: "date",
+      headerName: "Date",
+      filter: "agDateColumnFilter",
+      sortable: true,
+      comparator: dateComparator,
+      valueFormatter: (params) =>
+        typeof params.value === "string" ? formatDateDisplay(params.value) : "",
+    },
+  ]);
 
   const defaultColDef = useMemo<ColDef>(
     () => ({
       flex: 1,
-      minWidth: 120,
-      filter: true,
+      minWidth: 150,
+      floatingFilter: true,
+      sortable: true,
     }),
     []
   );
 
-  const onGridReady = useCallback((params: GridReadyEvent) => {
-    fetch("https://www.ag-grid.com/example-assets/olympic-winners.json")
-      .then((resp) => resp.json())
-      .then((data: IOlympicData[]) => setRowData(data));
-  }, []);
+  const data: IUserPriceData[] = dummy;
+  const loading = false;
+
+  // Date range inputs
+  const [startWeekDate, setStartWeekDate] = useState<string>("");
+  const [endWeekDate, setEndWeekDate] = useState<string>("");
+
+  // Search filter input
+  const [searchText, setSearchText] = useState<string>("");
+
+  // Filter data by date range
+  const filteredDataByDate = useMemo(() => {
+    if (!data) return [];
+
+    const startDate = startWeekDate ? parseInputDate(startWeekDate) : null;
+    const endDate = endWeekDate ? parseInputDate(endWeekDate) : null;
+
+    let actualStartDate = startDate;
+    let actualEndDate = endDate;
+    if (startDate && endDate && startDate > endDate) {
+      actualStartDate = endDate;
+      actualEndDate = startDate;
+    }
+
+    return data.filter((d) => {
+      if (!d.date) return false;
+
+      const recordDate = parseDate(d.date);
+
+      if (actualStartDate && actualEndDate) {
+        return recordDate >= actualStartDate && recordDate <= actualEndDate;
+      } else if (actualStartDate) {
+        return recordDate >= actualStartDate;
+      } else if (actualEndDate) {
+        return recordDate <= actualEndDate;
+      }
+
+      return true;
+    });
+  }, [data, startWeekDate, endWeekDate]);
+
+  // Further filter by search string
+  const filteredData = useMemo(() => {
+    if (!filteredDataByDate) return [];
+
+    if (!searchText) return filteredDataByDate;
+
+    const lowerSearch = searchText.toLowerCase();
+
+    return filteredDataByDate.filter((item) => {
+      const formattedDate = item.date ? item.date.replace(/\//g, " ") : "";
+
+      return (
+        (item.name && item.name.toLowerCase().includes(lowerSearch)) ||
+        (item.month && item.month.toLowerCase().includes(lowerSearch)) ||
+        (formattedDate && formattedDate.toLowerCase().includes(lowerSearch)) ||
+        item.price.toString().includes(lowerSearch)
+      );
+    });
+  }, [filteredDataByDate, searchText]);
+
+  // Revenue calculation
+  const estimatedRevenue = useMemo(() => {
+    if (!filteredData) return 0;
+    return filteredData.reduce((sum, item) => sum + item.price, 0);
+  }, [filteredData]);
 
   return (
-    <div style={containerStyle}>
-      <div className="test-container">
-        <div className="test-header">
-          <h3>Lock Columns</h3>
-          {columnDefs.map((col) => (
-            <label key={col.field} style={{ marginRight: "10px" }}>
-              <input
-                type="checkbox"
-                checked={lockedColumns[col.field ?? ""] || false}
-                onChange={() => toggleLockColumn(col.field ?? "")}
-                />
-              {col.field}
-            </label>
-          ))}
-        </div>
+    <div style={{ padding: 20 }}>
+      <div className="form-row">
+        <label className="form-label">
+          Start Week Date:
+          <input
+            type="date"
+            value={startWeekDate}
+            onChange={(e) => setStartWeekDate(e.target.value)}
+            className="form-input"
+          />
+        </label>
 
+        <label className="form-label">
+          End Week Date:
+          <input
+            type="date"
+            value={endWeekDate}
+            onChange={(e) => setEndWeekDate(e.target.value)}
+            className="form-input"
+          />
+        </label>
+      </div>
+
+      <div className="form-group">
+        <label className="form-label">
+          Search:
+          <input
+            type="text"
+            placeholder="Search by name, month, date or price"
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            className="form-input"
+          />
+        </label>
+      </div>
+
+
+
+      <div style={containerStyle}>
         <div style={gridStyle}>
-          <AgGridReact<IOlympicData>
-            className="aggrid"
-            ref={gridRef}
-            rowData={rowData}
+          <AgGridReact<IUserPriceData>
+            rowData={filteredData}
+            loading={loading}
             columnDefs={columnDefs}
             defaultColDef={defaultColDef}
-            onGridReady={onGridReady}
-            animateRows
-            allowShowChangeAfterFilter
-            autoSizePadding={10}
           />
         </div>
+      </div>
+
+      <div style={{ marginTop: 20 }}>
+        <strong>
+          Estimated Revenue for Selected Months: ${estimatedRevenue.toLocaleString()}
+        </strong>
       </div>
     </div>
   );
